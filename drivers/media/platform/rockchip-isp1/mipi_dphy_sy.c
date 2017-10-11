@@ -534,7 +534,7 @@ static int rockchip_mipidphy_probe(struct platform_device *pdev)
 	struct regmap *grf;
 	const struct of_device_id *of_id;
 	const struct dphy_drv_data *drv_data;
-	int i;
+	int i, ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -576,10 +576,14 @@ static int rockchip_mipidphy_probe(struct platform_device *pdev)
 	priv->pads[MIPI_DPHY_SY_PAD_SOURCE].flags = MEDIA_PAD_FL_SOURCE;
 	priv->pads[MIPI_DPHY_SY_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
 
+	ret =  media_entity_init(&sd->entity, MIPI_DPHY_SY_PADS_NUM,
+				 priv->pads, 0);
+	if (ret < 0)
+		return ret;
+
 	pm_runtime_enable(&pdev->dev);
 
-	return media_entity_init(&sd->entity, MIPI_DPHY_SY_PADS_NUM,
-				 priv->pads, 0);
+	return 0;
 }
 
 static int rockchip_mipidphy_remove(struct platform_device *pdev)

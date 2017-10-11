@@ -35,6 +35,7 @@
 #ifndef _RKISP1_REGS_H
 #define _RKISP1_REGS_H
 #include "common.h"
+#include "rkisp1.h"
 
 /* ISP_CTRL */
 #define CIF_ISP_CTRL_ISP_ENABLE                BIT(0)
@@ -1278,84 +1279,132 @@
 #define CIF_ISP_VSM_DELTA_H    (CIF_ISP_VSM_BASE + 0x0000001C)
 #define CIF_ISP_VSM_DELTA_V    (CIF_ISP_VSM_BASE + 0x00000020)
 
+struct streams_regs {
+	struct {
+		u32 ctrl;
+		u32 ctrl_shd;
+		u32 scale_hy;
+		u32 scale_hcr;
+		u32 scale_hcb;
+		u32 scale_vy;
+		u32 scale_vc;
+		u32 scale_lut;
+		u32 scale_lut_addr;
+		u32 scale_hy_shd;
+		u32 scale_hcr_shd;
+		u32 scale_hcb_shd;
+		u32 scale_vy_shd;
+		u32 scale_vc_shd;
+		u32 phase_hy;
+		u32 phase_hc;
+		u32 phase_vy;
+		u32 phase_vc;
+		u32 phase_hy_shd;
+		u32 phase_hc_shd;
+		u32 phase_vy_shd;
+		u32 phase_vc_shd;
+	} rsz;
+	struct {
+		u32 ctrl;
+		u32 yuvmode_mask;
+		u32 rawmode_mask;
+		u32 h_offset;
+		u32 v_offset;
+		u32 h_size;
+		u32 v_size;
+	} dual_crop;
+	struct {
+		u32 y_size_init;
+		u32 cb_size_init;
+		u32 cr_size_init;
+		u32 y_base_ad_init;
+		u32 cb_base_ad_init;
+		u32 cr_base_ad_init;
+		u32 y_offs_cnt_init;
+		u32 cb_offs_cnt_init;
+		u32 cr_offs_cnt_init;
+		u32 y_base_ad_shd;
+	} mi;
+};
+
 void disable_dcrop(struct rkisp1_stream *stream, bool async);
 void config_dcrop(struct rkisp1_stream *stream, struct v4l2_rect *rect, bool async);
-void mp_dump_rsz_regs(void __iomem *base);
-void sp_dump_rsz_regs(void __iomem *base);
-void set_scale(struct rkisp1_stream *stream, struct rkisp1_win *in_y,
-		struct rkisp1_win *in_c, struct rkisp1_win *out_y,
-		struct rkisp1_win *out_c);
 
-static inline void disable_rsz(void __iomem *rsz_ctrl_addr, bool async)
+void dump_rsz_regs(struct rkisp1_stream *stream);
+void disable_rsz(struct rkisp1_stream *stream, bool async);
+void config_rsz(struct rkisp1_stream *stream, struct rkisp1_win *in_y,
+	struct rkisp1_win *in_c, struct rkisp1_win *out_y,
+	struct rkisp1_win *out_c, bool async);
+
+void config_mi_ctrl(struct rkisp1_stream *stream);
+
+void mp_clr_frame_end_int(void __iomem *base);
+void sp_clr_frame_end_int(void __iomem *base);
+
+u32 mp_is_frame_end_int_masked(void __iomem *base);
+u32 sp_is_frame_end_int_masked(void __iomem *base);
+
+static inline void mi_set_y_size(struct rkisp1_stream *stream, int val)
 {
-	writel(0, rsz_ctrl_addr);
-	if (async)
-		writel(CIF_RSZ_CTRL_CFG_UPD | readl(rsz_ctrl_addr),
-		       rsz_ctrl_addr);
+	void __iomem *base = stream->ispdev->base_addr;
+
+	writel(val, base + stream->regs->mi.y_size_init);
 }
 
-static inline void mp_disable_rsz(void __iomem *base, bool async)
+static inline void mi_set_cb_size(struct rkisp1_stream *stream, int val)
 {
-	disable_rsz(base + CIF_MRSZ_CTRL, async);
+	void __iomem *base = stream->ispdev->base_addr;
+
+	writel(val, base + stream->regs->mi.cb_size_init);
 }
 
-static inline void sp_disable_rsz(void __iomem *base, bool async)
+static inline void mi_set_cr_size(struct rkisp1_stream *stream, int val)
 {
-	disable_rsz(base + CIF_SRSZ_CTRL, async);
+	void __iomem *base = stream->ispdev->base_addr;
+
+	writel(val, base + stream->regs->mi.cr_size_init);
 }
 
-static inline void mp_set_phase(void __iomem *base)
+static inline void mi_set_y_addr(struct rkisp1_stream *stream, int val)
 {
-	/* No phase offset */
-	writel(0, base + CIF_MRSZ_PHASE_HY);
-	writel(0, base + CIF_MRSZ_PHASE_HC);
-	writel(0, base + CIF_MRSZ_PHASE_VY);
-	writel(0, base + CIF_MRSZ_PHASE_VC);
+	void __iomem *base = stream->ispdev->base_addr;
+
+	writel(val, base + stream->regs->mi.y_base_ad_init);
 }
 
-static inline void sp_set_phase(void __iomem *base)
+static inline void mi_set_cb_addr(struct rkisp1_stream *stream, int val)
 {
-	/* No phase offset */
-	writel(0, base + CIF_SRSZ_PHASE_HY);
-	writel(0, base + CIF_SRSZ_PHASE_HC);
-	writel(0, base + CIF_SRSZ_PHASE_VY);
-	writel(0, base + CIF_SRSZ_PHASE_VC);
+	void __iomem *base = stream->ispdev->base_addr;
+
+	writel(val, base + stream->regs->mi.cb_base_ad_init);
 }
 
-static inline void mp_set_lut(void __iomem *base)
+static inline void mi_set_cr_addr(struct rkisp1_stream *stream, int val)
 {
-	int i = 0;
+	void __iomem *base = stream->ispdev->base_addr;
 
-	/* Linear interpolation */
-	for (i = 0; i < 64; i++) {
-		writel(i, base + CIF_MRSZ_SCALE_LUT_ADDR);
-		writel(i, base + CIF_MRSZ_SCALE_LUT);
-	}
+	writel(val, base + stream->regs->mi.cr_base_ad_init);
 }
 
-static inline void sp_set_lut(void __iomem *base)
+static inline void mi_set_y_offset(struct rkisp1_stream *stream, int val)
 {
-	int i = 0;
+	void __iomem *base = stream->ispdev->base_addr;
 
-	/* Linear interpolation */
-	for (i = 0; i < 64; i++) {
-		writel(i, base + CIF_SRSZ_SCALE_LUT_ADDR);
-		writel(i, base + CIF_SRSZ_SCALE_LUT);
-	}
+	writel(val, base + stream->regs->mi.y_offs_cnt_init);
 }
 
-static inline void mp_update_shadow_reg(void __iomem *base)
+static inline void mi_set_cb_offset(struct rkisp1_stream *stream, int val)
 {
-	void *addr = base + CIF_MRSZ_CTRL;
+	void __iomem *base = stream->ispdev->base_addr;
 
-	writel(CIF_RSZ_CTRL_CFG_UPD | readl(addr), addr);
+	writel(val, base + stream->regs->mi.cb_offs_cnt_init);
 }
 
-static inline void sp_update_shadow_reg(void __iomem *base)
+static inline void mi_set_cr_offset(struct rkisp1_stream *stream, int val)
 {
-	void *addr = base + CIF_SRSZ_CTRL;
+	void __iomem *base = stream->ispdev->base_addr;
 
-	writel(CIF_RSZ_CTRL_CFG_UPD | readl(addr), addr);
+	writel(val, base + stream->regs->mi.cr_offs_cnt_init);
 }
 
 static inline void mp_set_chain_mode(void __iomem *base)
@@ -1390,102 +1439,6 @@ static inline void sp_set_data_path(void __iomem *base)
 	writel(dpcl, base + CIF_VI_DPCL);
 }
 
-static inline void mp_set_mux(void __iomem *base)
-{
-	u32 dpcl = readl(base + CIF_VI_DPCL);
-
-	writel(CIF_VI_DPCL_MP_MUX_MRSZ_MI | dpcl, base + CIF_VI_DPCL);
-}
-
-static inline void mp_mi_set_y_size(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_MP_Y_SIZE_INIT);
-}
-
-static inline void sp_mi_set_y_size(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_SP_Y_SIZE_INIT);
-}
-
-static inline void mp_mi_set_cb_size(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_MP_CB_SIZE_INIT);
-}
-
-static inline void sp_mi_set_cb_size(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_SP_CB_SIZE_INIT);
-}
-
-static inline void mp_mi_set_cr_size(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_MP_CR_SIZE_INIT);
-}
-
-static inline void sp_mi_set_cr_size(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_SP_CR_SIZE_INIT);
-}
-
-static inline void mp_mi_set_y_addr(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_MP_Y_BASE_AD_INIT);
-}
-
-static inline void sp_mi_set_y_addr(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_SP_Y_BASE_AD_INIT);
-}
-
-static inline void mp_mi_set_cb_addr(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_MP_CB_BASE_AD_INIT);
-}
-
-static inline void sp_mi_set_cb_addr(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_SP_CB_BASE_AD_INIT);
-}
-
-static inline void mp_mi_set_cr_addr(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_MP_CR_BASE_AD_INIT);
-}
-
-static inline void sp_mi_set_cr_addr(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_SP_CR_BASE_AD_INIT);
-}
-
-static inline void mp_mi_set_y_offset(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_MP_Y_OFFS_CNT_INIT);
-}
-
-static inline void sp_mi_set_y_offset(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_SP_Y_OFFS_CNT_INIT);
-}
-
-static inline void mp_mi_set_cb_offset(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_MP_CB_OFFS_CNT_INIT);
-}
-
-static inline void sp_mi_set_cb_offset(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_SP_CB_OFFS_CNT_INIT);
-}
-
-static inline void mp_mi_set_cr_offset(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_MP_CR_OFFS_CNT_INIT);
-}
-
-static inline void sp_mi_set_cr_offset(void __iomem *base, int val)
-{
-	writel(val, base + CIF_MI_SP_CR_OFFS_CNT_INIT);
-}
 static inline void mp_frame_end_int_enable(void __iomem *base)
 {
 	void __iomem *addr = base + CIF_MI_IMSC;
@@ -1519,16 +1472,6 @@ static inline void frame_end_int_disable(void __iomem *base)
 	void __iomem *addr = base + CIF_MI_IMSC;
 
 	writel(~(CIF_MI_SP_FRAME | CIF_MI_MP_FRAME) & readl(addr), addr);
-}
-
-static inline void mp_clr_frame_end_int(void __iomem *base)
-{
-	writel(CIF_MI_MP_FRAME, base + CIF_MI_ICR);
-}
-
-static inline void sp_clr_frame_end_int(void __iomem *base)
-{
-	writel(CIF_MI_SP_FRAME, base + CIF_MI_ICR);
 }
 
 static inline void clr_mpsp_frame_end_int(void __iomem *base)
@@ -1596,36 +1539,6 @@ static inline void sp_mi_ctrl_set_format(void __iomem *base, u32 val)
 	u32 reg = readl(addr) & ~GENMASK(30, 24);
 
 	writel(reg | val, addr);
-}
-
-static inline void mi_ctrl_set_lum_burst(void __iomem *base)
-{
-	void __iomem *addr = base + CIF_MI_CTRL;
-	u32 reg = readl(addr) & ~GENMASK(17, 16);
-
-	writel(reg | CIF_MI_CTRL_BURST_LEN_LUM_64, addr);
-}
-
-static inline void mi_ctrl_set_chrom_burst(void __iomem *base)
-{
-	void __iomem *addr = base + CIF_MI_CTRL;
-	u32 reg = readl(addr) & ~GENMASK(19, 18);
-
-	writel(reg | CIF_MI_CTRL_BURST_LEN_CHROM_64, addr);
-}
-
-static inline void mi_ctrl_init_base_en(void __iomem *base)
-{
-	void __iomem *addr = base + CIF_MI_CTRL;
-
-	writel(readl(addr) | CIF_MI_CTRL_INIT_BASE_EN, addr);
-}
-
-static inline void mi_ctrl_init_offset_en(void __iomem *base)
-{
-	void __iomem *addr = base + CIF_MI_CTRL;
-
-	writel(readl(addr) | CIF_MI_CTRL_INIT_OFFSET_EN, addr);
 }
 
 static inline void mi_ctrl_mpyuv_enable(void __iomem *base)
@@ -1705,26 +1618,6 @@ static inline void force_cfg_update(void __iomem *base)
 static inline u32 mi_get_masked_int_status(void __iomem *base)
 {
 	return readl(base + CIF_MI_MIS);
-}
-
-static inline u32 mp_is_frame_end_int_masked(void __iomem *base)
-{
-	return (mi_get_masked_int_status(base) & CIF_MI_MP_FRAME);
-}
-
-static inline u32 sp_is_frame_end_int_masked(void __iomem *base)
-{
-	return (mi_get_masked_int_status(base) & CIF_MI_SP_FRAME);
-}
-
-static inline u32 mp_get_y_offset_counter_shd(void __iomem *base)
-{
-	return readl(base + CIF_MI_MP_Y_OFFS_CNT_SHD);
-}
-
-static inline u32 sp_get_y_offset_counter_shd(void __iomem *base)
-{
-	return readl(base + CIF_MI_SP_Y_OFFS_CNT_SHD);
 }
 
 #endif /* _RKISP1_REGS_H */

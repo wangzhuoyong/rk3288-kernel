@@ -100,25 +100,6 @@ struct rkisp1_device {
 	int cif_streamon_cnt;
 };
 
-/* all ISP submodules are always working in sync mode, that is, the shadow
- * registers of submodules are updated automatically along with
- * the frame end signal.
- */
-#define RKISP1_ALWAYS_ASYNC 0
-/* ISM sub module can be used to implement digital zoom functionality
- * with resizer sub module, and ISM parameters are changed frequently
- * and accidentally, in this case ISP will be changed to async mode
- * to keep ISP pipeline stable and RKISP1_ASYNC_ISM tell the reason
- * why ISP mode was changed.
- */
-#define	RKISP1_ASYNC_ISM 1
-
-/* define whether the MI sub module stop processing frames when there is no
- * queued buffer. if defined as 0, MI will hold one buffer when out of
- * buffer occurs.
- */
-#define RKISP1_ALWAYS_STALL_ON_NO_BUFS (0)
-
 /* Clean code starts from here */
 
 int rkisp1_register_isp_subdev(struct rkisp1_device *isp_dev,

@@ -182,6 +182,7 @@ enum rkisp1_sp_inp {
 
 struct rkisp1_device;
 struct rkisp1_stream;
+struct streams_regs;
 
 struct streams_ops {
 	void (*stream_init)(struct rkisp1_stream *stream);
@@ -190,33 +191,9 @@ struct streams_ops {
 	void (*stop_mi)(struct rkisp1_stream *stream);
 	void (*enable_mi)(struct rkisp1_stream *stream);
 	void (*disable_mi)(struct rkisp1_stream *stream);
-	void (*update_mi)(struct rkisp1_stream *stream);
 	void (*set_data_path)(void __iomem *base);
-	void (*disable_rsz)(void __iomem *base, bool async);
-	void (*set_phase)(void __iomem *base);
-	void (*set_lut)(void __iomem *base);
-	void (*update_shadow_reg)(void __iomem *base);
-	void (*dump_rsz_regs)(void __iomem *base);
 	void (*clr_frame_end_int)(void __iomem *base);
 	u32 (*is_frame_end_int_masked)(void __iomem *base);
-	u32 (*get_y_offset_counter_shd)(void __iomem *base);
-};
-
-struct streams_regs {
-	u32 scale_hy ;
-	u32 scale_hcr ;
-	u32 scale_hcb ;
-	u32 scale_vy ;
-	u32 scale_vc;
-	u32 rsz_ctrl ;
-	u32 dual_crop_ctrl ;
-	u32 dual_crop_yuvmode_mask ;
-	u32 dual_crop_rawmode_mask ;
-	u32 dual_crop_h_offset ;
-	u32 dual_crop_v_offset ;
-	u32 dual_crop_h_size ;
-	u32 dual_crop_v_size ;
-	u32 mi_y_base_ad_shd ;
 };
 
 struct rkisp1_stream_sp {
@@ -242,7 +219,6 @@ struct rkisp1_stream {
 	struct streams_regs *regs;
 	/* spinlock for videobuf queues */
 	spinlock_t vbq_lock;
-	void __iomem *base_addr;
 	/* mi config */
 	struct list_head buf_queue;
 	struct rkisp1_buffer *curr_buf;

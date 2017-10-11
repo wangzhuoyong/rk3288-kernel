@@ -121,7 +121,7 @@ static int __subdev_set_power(struct v4l2_subdev *sd, int on)
 static int __isp_pipeline_s_power(struct rkisp1_pipeline *p, bool on)
 {
 	static const u8 seq[2][IDX_MAX] = {
-		{ IDX_ISP, IDX_SENSOR, IDX_MIPIPHY },
+		{ IDX_MIPIPHY, IDX_SENSOR, IDX_ISP },
 		{ IDX_ISP, IDX_SENSOR, IDX_MIPIPHY },
 	};
 	int i, ret = 0;
@@ -554,7 +554,7 @@ static irqreturn_t rkisp1_irq_handler(int irq, void *cntxt)
 
 	/* TODO: update crop & resize */
 	clr_all_int(base);
-	return IRQ_NONE;
+	return IRQ_HANDLED;
 }
 
 static void rkisp1_disable_sys_clk(struct rkisp1_device *rkisp1_dev)

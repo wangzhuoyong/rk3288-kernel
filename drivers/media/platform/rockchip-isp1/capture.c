@@ -40,8 +40,8 @@
 #include <media/v4l2-subdev.h>
 #include <media/videobuf2-dma-contig.h>
 #include "capture.h"
-#include "regs.h"
 #include "rkisp1.h"
+#include "regs.h"
 
 #define CIF_ISP_REQ_BUFS_MIN 1
 #define CIF_ISP_REQ_BUFS_MAX 8
@@ -247,8 +247,8 @@ static const struct rkisp1_fmt mp_fmts[] = {
 		.colorspace = V4L2_COLORSPACE_JPEG,
 		.fmt_type = FMT_YUV,
 		.bpp = { 8 },
-		.xsubs = 0,
-		.ysubs = 0,
+		.xsubs = 1,
+		.ysubs = 1,
 		.cplanes = 1,
 		.mplanes = 1,
 		.uv_swap = 0,
@@ -523,8 +523,8 @@ static const struct rkisp1_fmt sp_fmts[] = {
 		.colorspace = V4L2_COLORSPACE_JPEG,
 		.fmt_type = FMT_YUV,
 		.bpp = { 8 },
-		.xsubs = 0,
-		.ysubs = 0,
+		.xsubs = 1,
+		.ysubs = 1,
 		.cplanes = 1,
 		.mplanes = 1,
 		.uv_swap = 0,
@@ -557,37 +557,99 @@ static const struct rkisp1_fmt sp_fmts[] = {
 };
 
 static struct streams_regs rkisp1_mp_streams_regs = {
-	.scale_hy = CIF_MRSZ_SCALE_HY,
-	.scale_hcr = CIF_MRSZ_SCALE_HCR,
-	.scale_hcb = CIF_MRSZ_SCALE_HCB,
-	.scale_vy = CIF_MRSZ_SCALE_VY,
-	.scale_vc = CIF_MRSZ_SCALE_VC,
-	.rsz_ctrl = CIF_MRSZ_CTRL,
-	.dual_crop_ctrl = CIF_DUAL_CROP_CTRL,
-	.dual_crop_yuvmode_mask = CIF_DUAL_CROP_MP_MODE_YUV,
-	.dual_crop_rawmode_mask = CIF_DUAL_CROP_MP_MODE_RAW,
-	.dual_crop_h_offset = CIF_DUAL_CROP_M_H_OFFS,
-	.dual_crop_v_offset = CIF_DUAL_CROP_M_V_OFFS,
-	.dual_crop_h_size = CIF_DUAL_CROP_M_H_SIZE,
-	.dual_crop_v_size = CIF_DUAL_CROP_M_V_SIZE,
-	.mi_y_base_ad_shd = CIF_MI_MP_Y_BASE_AD_SHD,
+	.rsz = {
+		.ctrl = CIF_MRSZ_CTRL,
+		.scale_hy = CIF_MRSZ_SCALE_HY,
+		.scale_hcr = CIF_MRSZ_SCALE_HCR,
+		.scale_hcb = CIF_MRSZ_SCALE_HCB,
+		.scale_vy = CIF_MRSZ_SCALE_VY,
+		.scale_vc = CIF_MRSZ_SCALE_VC,
+		.scale_lut = CIF_MRSZ_SCALE_LUT,
+		.scale_lut_addr = CIF_MRSZ_SCALE_LUT_ADDR,
+		.scale_hy_shd = CIF_MRSZ_SCALE_HY_SHD,
+		.scale_hcr_shd = CIF_MRSZ_SCALE_HCR_SHD,
+		.scale_hcb_shd = CIF_MRSZ_SCALE_HCB_SHD,
+		.scale_vy_shd = CIF_MRSZ_SCALE_VY_SHD,
+		.scale_vc_shd = CIF_MRSZ_SCALE_VC_SHD,
+		.phase_hy = CIF_MRSZ_PHASE_HY,
+		.phase_hc = CIF_MRSZ_PHASE_HC,
+		.phase_vy = CIF_MRSZ_PHASE_VY,
+		.phase_vc = CIF_MRSZ_PHASE_VC,
+		.ctrl_shd = CIF_MRSZ_CTRL_SHD,
+		.phase_hy_shd = CIF_MRSZ_PHASE_HY_SHD,
+		.phase_hc_shd = CIF_MRSZ_PHASE_HC_SHD,
+		.phase_vy_shd = CIF_MRSZ_PHASE_VY_SHD,
+		.phase_vc_shd = CIF_MRSZ_PHASE_VC_SHD,
+	},
+	.dual_crop = {
+		.ctrl = CIF_DUAL_CROP_CTRL,
+		.yuvmode_mask = CIF_DUAL_CROP_MP_MODE_YUV,
+		.rawmode_mask = CIF_DUAL_CROP_MP_MODE_RAW,
+		.h_offset = CIF_DUAL_CROP_M_H_OFFS,
+		.v_offset = CIF_DUAL_CROP_M_V_OFFS,
+		.h_size = CIF_DUAL_CROP_M_H_SIZE,
+		.v_size = CIF_DUAL_CROP_M_V_SIZE,
+	},
+	.mi = {
+		.y_size_init = CIF_MI_MP_Y_SIZE_INIT,
+		.cb_size_init = CIF_MI_MP_CB_SIZE_INIT,
+		.cr_size_init = CIF_MI_MP_CR_SIZE_INIT,
+		.y_base_ad_init = CIF_MI_MP_Y_BASE_AD_INIT,
+		.cb_base_ad_init = CIF_MI_MP_CB_BASE_AD_INIT,
+		.cr_base_ad_init = CIF_MI_MP_CR_BASE_AD_INIT,
+		.y_offs_cnt_init = CIF_MI_MP_Y_OFFS_CNT_INIT,
+		.cb_offs_cnt_init = CIF_MI_MP_CB_OFFS_CNT_INIT,
+		.cr_offs_cnt_init = CIF_MI_MP_CR_OFFS_CNT_INIT,
+		.y_base_ad_shd = CIF_MI_MP_Y_BASE_AD_SHD,
+	},
 };
 
 static struct streams_regs rkisp1_sp_streams_regs = {
-	.scale_hy = CIF_SRSZ_SCALE_HY,
-	.scale_hcr = CIF_SRSZ_SCALE_HCR,
-	.scale_hcb = CIF_SRSZ_SCALE_HCB,
-	.scale_vy = CIF_SRSZ_SCALE_VY,
-	.scale_vc = CIF_SRSZ_SCALE_VC,
-	.rsz_ctrl = CIF_SRSZ_CTRL,
-	.dual_crop_ctrl = CIF_DUAL_CROP_CTRL,
-	.dual_crop_yuvmode_mask = CIF_DUAL_CROP_SP_MODE_YUV,
-	.dual_crop_rawmode_mask = CIF_DUAL_CROP_SP_MODE_RAW,
-	.dual_crop_h_offset = CIF_DUAL_CROP_S_H_OFFS,
-	.dual_crop_v_offset = CIF_DUAL_CROP_S_V_OFFS,
-	.dual_crop_h_size = CIF_DUAL_CROP_S_H_SIZE,
-	.dual_crop_v_size = CIF_DUAL_CROP_S_V_SIZE,
-	.mi_y_base_ad_shd = CIF_MI_SP_Y_BASE_AD_SHD,
+	.rsz = {
+		.ctrl = CIF_SRSZ_CTRL,
+		.scale_hy = CIF_SRSZ_SCALE_HY,
+		.scale_hcr = CIF_SRSZ_SCALE_HCR,
+		.scale_hcb = CIF_SRSZ_SCALE_HCB,
+		.scale_vy = CIF_SRSZ_SCALE_VY,
+		.scale_vc = CIF_SRSZ_SCALE_VC,
+		.scale_lut = CIF_SRSZ_SCALE_LUT,
+		.scale_lut_addr = CIF_SRSZ_SCALE_LUT_ADDR,
+		.scale_hy_shd = CIF_SRSZ_SCALE_HY_SHD,
+		.scale_hcr_shd = CIF_SRSZ_SCALE_HCR_SHD,
+		.scale_hcb_shd = CIF_SRSZ_SCALE_HCB_SHD,
+		.scale_vy_shd = CIF_SRSZ_SCALE_VY_SHD,
+		.scale_vc_shd = CIF_SRSZ_SCALE_VC_SHD,
+		.phase_hy = CIF_SRSZ_PHASE_HY,
+		.phase_hc = CIF_SRSZ_PHASE_HC,
+		.phase_vy = CIF_SRSZ_PHASE_VY,
+		.phase_vc = CIF_SRSZ_PHASE_VC,
+		.ctrl_shd = CIF_SRSZ_CTRL_SHD,
+		.phase_hy_shd = CIF_SRSZ_PHASE_HY_SHD,
+		.phase_hc_shd = CIF_SRSZ_PHASE_HC_SHD,
+		.phase_vy_shd = CIF_SRSZ_PHASE_VY_SHD,
+		.phase_vc_shd = CIF_SRSZ_PHASE_VC_SHD,
+	},
+	.dual_crop = {
+		.ctrl = CIF_DUAL_CROP_CTRL,
+		.yuvmode_mask = CIF_DUAL_CROP_SP_MODE_YUV,
+		.rawmode_mask = CIF_DUAL_CROP_SP_MODE_RAW,
+		.h_offset = CIF_DUAL_CROP_S_H_OFFS,
+		.v_offset = CIF_DUAL_CROP_S_V_OFFS,
+		.h_size = CIF_DUAL_CROP_S_H_SIZE,
+		.v_size = CIF_DUAL_CROP_S_V_SIZE,
+	},
+	.mi = {
+		.y_size_init = CIF_MI_SP_Y_SIZE_INIT,
+		.cb_size_init = CIF_MI_SP_CB_SIZE_INIT,
+		.cr_size_init = CIF_MI_SP_CR_SIZE_INIT,
+		.y_base_ad_init = CIF_MI_SP_Y_BASE_AD_INIT,
+		.cb_base_ad_init = CIF_MI_SP_CB_BASE_AD_INIT,
+		.cr_base_ad_init = CIF_MI_SP_CR_BASE_AD_INIT,
+		.y_offs_cnt_init = CIF_MI_SP_Y_OFFS_CNT_INIT,
+		.cb_offs_cnt_init = CIF_MI_SP_CB_OFFS_CNT_INIT,
+		.cr_offs_cnt_init = CIF_MI_SP_CR_OFFS_CNT_INIT,
+		.y_base_ad_shd = CIF_MI_SP_Y_BASE_AD_SHD,
+	},
 };
 
 static const
@@ -628,11 +690,13 @@ static int rkisp1_config_dcrop(struct rkisp1_stream *stream, bool async)
 static int rkisp1_config_rsz(struct rkisp1_stream *stream, bool async)
 {
 	struct rkisp1_device *dev = stream->ispdev;
-	void __iomem *base = stream->base_addr;
 	struct v4l2_pix_format_mplane output_fmt = stream->out_fmt;
 	struct rkisp1_fmt *output_isp_fmt = &stream->out_isp_fmt;
 	struct rkisp1_fmt *input_isp_fmt = rkisp1_get_isp_sd_fmt(dev);
 	struct rkisp1_win in_y, in_c, out_y, out_c;
+
+	if (input_isp_fmt->fmt_type == FMT_BAYER)
+		goto disable;
 
 	/* set input and output sizes for scale calculation */
 	in_y.w = stream->dcrop.width;
@@ -641,7 +705,6 @@ static int rkisp1_config_rsz(struct rkisp1_stream *stream, bool async)
 	out_y.h = output_fmt.height;
 	in_c.w = in_y.w / input_isp_fmt->xsubs;
 	in_c.h = in_y.h / input_isp_fmt->ysubs;
-
 	if (output_isp_fmt->fmt_type == FMT_YUV) {
 		out_c.w = out_y.w / output_isp_fmt->xsubs;
 		out_c.h = out_y.h / output_isp_fmt->ysubs;
@@ -650,10 +713,8 @@ static int rkisp1_config_rsz(struct rkisp1_stream *stream, bool async)
 		out_c.h = out_y.h / input_isp_fmt->ysubs;
 	}
 
-	if (in_c.w == out_c.w && in_c.h == out_c.h) {
-		    stream->ops->disable_rsz(base, async);
-		    return 0;
-	}
+	if (in_c.w == out_c.w && in_c.h == out_c.h)
+		goto disable;
 
 	/* set RSZ input and output */
 	v4l2_dbg(1, rkisp1_debug, &dev->v4l2_dev,
@@ -662,56 +723,53 @@ static int rkisp1_config_rsz(struct rkisp1_stream *stream, bool async)
 		  stream->dcrop.width, stream->dcrop.height,
 		  output_isp_fmt->fourcc, output_fmt.width,
 		  output_fmt.height);
-
 	v4l2_dbg(1, rkisp1_debug, &dev->v4l2_dev,
 		 "chroma scaling %dx%d -> %dx%d\n",
 		 in_c.w, in_c.h, out_c.w, out_c.h);
 
-	stream->ops->set_phase(base);
-	stream->ops->set_lut(base);
-
 	/* calculate and set scale */
-	set_scale(stream, &in_y, &in_c, &out_y, &out_c);
-	if (!async)
-		stream->ops->update_shadow_reg(base);
+	config_rsz(stream, &in_y, &in_c, &out_y, &out_c, async);
 
 	if (rkisp1_debug)
-		stream->ops->dump_rsz_regs(base);
+		dump_rsz_regs(stream);
+
+	return 0;
+
+disable:
 	return 0;
 }
 
 /***************************** stream operations*******************************/
 static void mp_config_mi(struct rkisp1_stream *stream)
 {
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 
-	mp_mi_set_y_size(base, stream->out_fmt.plane_fmt[0].bytesperline *
+	mi_set_y_size(stream, stream->out_fmt.plane_fmt[0].bytesperline *
 			 stream->out_fmt.height);
-	mp_mi_set_cb_size(base, stream->out_fmt.plane_fmt[1].sizeimage);
-	mp_mi_set_cr_size(base, stream->out_fmt.plane_fmt[2].sizeimage);
+	mi_set_cb_size(stream, stream->out_fmt.plane_fmt[1].sizeimage);
+	mi_set_cr_size(stream, stream->out_fmt.plane_fmt[2].sizeimage);
+
 	mp_frame_end_int_enable(base);
 	if (stream->out_isp_fmt.uv_swap)
 		mp_set_uv_swap(base);
 
+	config_mi_ctrl(stream);
 	mp_mi_ctrl_set_format(base, stream->out_isp_fmt.write_format);
-	mi_ctrl_set_lum_burst(base);
-	mi_ctrl_set_chrom_burst(base);
-	mi_ctrl_init_base_en(base);
-	mi_ctrl_init_offset_en(base);
 	mp_mi_ctrl_autoupdate_en(base);
 }
 
 static void sp_config_mi(struct rkisp1_stream *stream)
 {
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 	struct rkisp1_device *dev = stream->ispdev;
 	struct rkisp1_fmt *output_isp_fmt = &stream->out_isp_fmt;
 	struct rkisp1_fmt *input_isp_fmt = rkisp1_get_isp_sd_fmt(dev);
 
-	sp_mi_set_y_size(base, stream->out_fmt.plane_fmt[0].bytesperline *
+	mi_set_y_size(stream, stream->out_fmt.plane_fmt[0].bytesperline *
 			 stream->out_fmt.height);
-	sp_mi_set_cb_size(base, stream->out_fmt.plane_fmt[1].sizeimage);
-	sp_mi_set_cr_size(base, stream->out_fmt.plane_fmt[2].sizeimage);
+	mi_set_cb_size(stream, stream->out_fmt.plane_fmt[1].sizeimage);
+	mi_set_cr_size(stream, stream->out_fmt.plane_fmt[2].sizeimage);
+
 	sp_set_y_width(base, stream->out_fmt.width);
 	sp_set_y_height(base, stream->out_fmt.height);
 	sp_set_y_line_length(base, stream->out_fmt.width);
@@ -719,14 +777,10 @@ static void sp_config_mi(struct rkisp1_stream *stream)
 	if (output_isp_fmt->uv_swap)
 		sp_set_uv_swap(base);
 
+	config_mi_ctrl(stream);
 	sp_mi_ctrl_set_format(base, stream->out_isp_fmt.write_format |
 			      input_isp_fmt->input_format |
 			      output_isp_fmt->output_format);
-
-	mi_ctrl_set_lum_burst(base);
-	mi_ctrl_set_chrom_burst(base);
-	mi_ctrl_init_base_en(base);
-	mi_ctrl_init_offset_en(base);
 	sp_mi_ctrl_autoupdate_en(base);
 }
 
@@ -780,7 +834,7 @@ void sp_stream_init(struct rkisp1_stream *stream)
 
 static void mp_enable_mi(struct rkisp1_stream *stream)
 {
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 	struct rkisp1_fmt *isp_fmt = &stream->out_isp_fmt;
 
 	mi_ctrl_mp_disable(base);
@@ -795,60 +849,42 @@ static void mp_enable_mi(struct rkisp1_stream *stream)
 
 static void sp_enable_mi(struct rkisp1_stream *stream)
 {
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 
 	mi_ctrl_spyuv_enable(base);
 }
 
 static void mp_disable_mi(struct rkisp1_stream *stream)
 {
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 
 	mi_ctrl_mp_disable(base);
 }
 
 static void sp_disable_mi(struct rkisp1_stream *stream)
 {
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 
 	mi_ctrl_spyuv_disable(base);
 }
 
-static void mp_update_mi(struct rkisp1_stream *stream)
+static void update_mi(struct rkisp1_stream *stream)
 {
-	void __iomem *base = stream->base_addr;
-
-	mp_mi_set_y_addr(base,
+	mi_set_y_addr(stream,
 		stream->next_buf->buff_addr[RKISP1_PLANE_Y]);
-	mp_mi_set_cb_addr(base,
+	mi_set_cb_addr(stream,
 		stream->next_buf->buff_addr[RKISP1_PLANE_CB]);
-	mp_mi_set_cr_addr(base,
+	mi_set_cr_addr(stream,
 		stream->next_buf->buff_addr[RKISP1_PLANE_CR]);
 
-	mp_mi_set_y_offset(base, 0);
-	mp_mi_set_cb_offset(base, 0);
-	mp_mi_set_cr_offset(base, 0);
-}
-
-static void sp_update_mi(struct rkisp1_stream *stream)
-{
-	void __iomem *base = stream->base_addr;
-
-	sp_mi_set_y_addr(base,
-		stream->next_buf->buff_addr[RKISP1_PLANE_Y]);
-	sp_mi_set_cb_addr(base,
-		stream->next_buf->buff_addr[RKISP1_PLANE_CB]);
-	sp_mi_set_cr_addr(base,
-		stream->next_buf->buff_addr[RKISP1_PLANE_CR]);
-
-	sp_mi_set_y_offset(base, 0);
-	sp_mi_set_cb_offset(base, 0);
-	sp_mi_set_cr_offset(base, 0);
+	mi_set_y_offset(stream, 0);
+	mi_set_cb_offset(stream, 0);
+	mi_set_cr_offset(stream, 0);
 }
 
 static void mp_stop_mi(struct rkisp1_stream *stream)
 {
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 
 	if (stream->state != RKISP1_STATE_STREAMING)
 		return;
@@ -859,7 +895,7 @@ static void mp_stop_mi(struct rkisp1_stream *stream)
 
 static void sp_stop_mi(struct rkisp1_stream *stream)
 {
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 
 	if (stream->state != RKISP1_STATE_STREAMING)
 		return;
@@ -874,17 +910,10 @@ static struct streams_ops rkisp1_mp_streams_ops = {
 	.config_mi = mp_config_mi,
 	.enable_mi = mp_enable_mi,
 	.disable_mi = mp_disable_mi,
-	.update_mi = mp_update_mi,
 	.stop_mi = mp_stop_mi,
 	.set_data_path = mp_set_data_path,
-	.disable_rsz = mp_disable_rsz,
-	.set_phase = mp_set_phase,
-	.set_lut = mp_set_lut,
-	.update_shadow_reg = mp_update_shadow_reg,
-	.dump_rsz_regs = mp_dump_rsz_regs,
 	.clr_frame_end_int = mp_clr_frame_end_int,
 	.is_frame_end_int_masked = mp_is_frame_end_int_masked,
-	.get_y_offset_counter_shd = mp_get_y_offset_counter_shd,
 };
 
 static struct streams_ops rkisp1_sp_streams_ops = {
@@ -893,17 +922,10 @@ static struct streams_ops rkisp1_sp_streams_ops = {
 	.config_mi = sp_config_mi,
 	.enable_mi = sp_enable_mi,
 	.disable_mi = sp_disable_mi,
-	.update_mi = sp_update_mi,
 	.stop_mi = sp_stop_mi,
 	.set_data_path = sp_set_data_path,
-	.disable_rsz = sp_disable_rsz,
-	.set_phase = sp_set_phase,
-	.set_lut = sp_set_lut,
-	.update_shadow_reg = sp_update_shadow_reg,
-	.dump_rsz_regs = sp_dump_rsz_regs,
 	.clr_frame_end_int = sp_clr_frame_end_int,
 	.is_frame_end_int_masked = sp_is_frame_end_int_masked,
-	.get_y_offset_counter_shd = sp_get_y_offset_counter_shd,
 };
 
 static void rkisp1_stream_stop(struct rkisp1_stream *stream)
@@ -920,7 +942,7 @@ static void rkisp1_stream_stop(struct rkisp1_stream *stream)
 		v4l2_warn(v4l2_dev, "waiting on event return error %d\n", ret);
 		stream->ops->stop_mi(stream);
 		disable_dcrop(stream, true);
-		stream->ops->disable_rsz(stream->base_addr, true);
+		disable_rsz(stream, true);
 		stream->stop = false;
 		stream->state = RKISP1_STATE_READY;
 	}
@@ -932,9 +954,9 @@ static void rkisp1_stream_stop(struct rkisp1_stream *stream)
 static int mi_frame_end(struct rkisp1_stream *stream)
 {
 	struct rkisp1_device *dev = stream->ispdev;
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 	struct rkisp1_fmt *isp_fmt;
-	void __iomem *y_base_addr = base + stream->regs->mi_y_base_ad_shd;
+	void __iomem *y_base_addr = base + stream->regs->mi.y_base_ad_shd;
 	int i = 0;
 
 	stream->ops->clr_frame_end_int(base);
@@ -973,7 +995,7 @@ static int mi_frame_end(struct rkisp1_stream *stream)
 		stream->next_buf = list_first_entry(&stream->buf_queue,
 				     struct rkisp1_buffer, queue);
 		list_del(&stream->next_buf->queue);
-		stream->ops->update_mi(stream);
+		update_mi(stream);
 	}
 
 	return 0;
@@ -984,7 +1006,7 @@ static int mi_frame_end(struct rkisp1_stream *stream)
  */
 static int rkisp1_start(struct rkisp1_stream *stream)
 {
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 
 	stream->ops->set_data_path(base);
 	stream->ops->config_mi(stream);
@@ -1288,7 +1310,6 @@ static int rkisp1_set_fmt(struct rkisp1_stream *stream,
 /************************* v4l2_file_operations***************************/
 int rkisp1_stream_init(struct rkisp1_stream *stream, u32 id)
 {
-	struct rkisp1_device *dev = stream->ispdev;
 	struct v4l2_pix_format_mplane pixm;
 
 	INIT_LIST_HEAD(&stream->buf_queue);
@@ -1296,7 +1317,6 @@ int rkisp1_stream_init(struct rkisp1_stream *stream, u32 id)
 	stream->curr_buf = NULL;
 	stream->stop = false;
 	stream->id = id;
-	stream->base_addr = dev->base_addr;
 	init_waitqueue_head(&stream->done);
 	spin_lock_init(&stream->vbq_lock);
 	if (stream->id == RKISP1_STREAM_SP)
@@ -1627,7 +1647,7 @@ err:
 void rkisp1_mi_isr(struct rkisp1_stream *stream)
 {
 	struct rkisp1_device *dev = stream->ispdev;
-	void __iomem *base = stream->base_addr;
+	void __iomem *base = stream->ispdev->base_addr;
 	u32 val;
 
 	stream->ops->clr_frame_end_int(base);
@@ -1644,7 +1664,7 @@ void rkisp1_mi_isr(struct rkisp1_stream *stream)
 	if (stream->stop) {
 		stream->ops->stop_mi(stream);
 		disable_dcrop(stream, true);
-		stream->ops->disable_rsz(base, true);
+		disable_rsz(stream, true);
 		stream->stop = false;
 		stream->state = RKISP1_STATE_READY;
 		v4l2_info(&dev->v4l2_dev, "stream %d stopped\n", stream->id);

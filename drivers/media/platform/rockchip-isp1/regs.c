@@ -37,10 +37,11 @@
 
 void disable_dcrop(struct rkisp1_stream *stream, bool async)
 {
-	void __iomem *base = stream->base_addr;
-	void __iomem *dc_ctrl_addr = base + stream->regs->dual_crop_ctrl;
+	void __iomem *base = stream->ispdev->base_addr;
+	void __iomem *dc_ctrl_addr = base + stream->regs->dual_crop.ctrl;
 	u32 dc_ctrl = readl(dc_ctrl_addr);
-	u32 mask = ~(stream->regs->dual_crop_yuvmode_mask | stream->regs->dual_crop_rawmode_mask );
+	u32 mask = ~(stream->regs->dual_crop.yuvmode_mask |
+			stream->regs->dual_crop.rawmode_mask);
 	u32 val = dc_ctrl & mask;
 
 	if (async)
@@ -52,15 +53,15 @@ void disable_dcrop(struct rkisp1_stream *stream, bool async)
 
 void config_dcrop(struct rkisp1_stream *stream, struct v4l2_rect *rect, bool async)
 {
-	void __iomem *base = stream->base_addr;
-	void __iomem *dc_ctrl_addr = base + stream->regs->dual_crop_ctrl;
+	void __iomem *base = stream->ispdev->base_addr;
+	void __iomem *dc_ctrl_addr = base + stream->regs->dual_crop.ctrl;
 	u32 dc_ctrl = readl(dc_ctrl_addr);
 
-	writel(rect->left, base + stream->regs->dual_crop_h_offset);
-	writel(rect->top, base + stream->regs->dual_crop_v_offset);
-	writel(rect->width, base + stream->regs->dual_crop_h_size);
-	writel(rect->height, base + stream->regs->dual_crop_v_size);
-	dc_ctrl |= stream->regs->dual_crop_yuvmode_mask;
+	writel(rect->left, base + stream->regs->dual_crop.h_offset);
+	writel(rect->top, base + stream->regs->dual_crop.v_offset);
+	writel(rect->width, base + stream->regs->dual_crop.h_size);
+	writel(rect->height, base + stream->regs->dual_crop.v_size);
+	dc_ctrl |= stream->regs->dual_crop.yuvmode_mask;
 	if (async)
 		dc_ctrl |= CIF_DUAL_CROP_GEN_CFG_UPD;
 	else
@@ -68,85 +69,61 @@ void config_dcrop(struct rkisp1_stream *stream, struct v4l2_rect *rect, bool asy
 	writel(dc_ctrl, dc_ctrl_addr);
 }
 
-void mp_dump_rsz_regs(void __iomem *base)
+void dump_rsz_regs(struct rkisp1_stream *stream)
 {
-	pr_info("MRSZ_CTRL 0x%08x/0x%08x\n"
-			"MRSZ_SCALE_HY %d/%d\n"
-			"MRSZ_SCALE_HCB %d/%d\n"
-			"MRSZ_SCALE_HCR %d/%d\n"
-			"MRSZ_SCALE_VY %d/%d\n"
-			"MRSZ_SCALE_VC %d/%d\n"
-			"MRSZ_PHASE_HY %d/%d\n"
-			"MRSZ_PHASE_HC %d/%d\n"
-			"MRSZ_PHASE_VY %d/%d\n"
-			"MRSZ_PHASE_VC %d/%d\n",
-			readl(base + CIF_MRSZ_CTRL),
-			readl(base + CIF_MRSZ_CTRL_SHD),
-			readl(base + CIF_MRSZ_SCALE_HY),
-			readl(base + CIF_MRSZ_SCALE_HY_SHD),
-			readl(base + CIF_MRSZ_SCALE_HCB),
-			readl(base + CIF_MRSZ_SCALE_HCB_SHD),
-			readl(base + CIF_MRSZ_SCALE_HCR),
-			readl(base + CIF_MRSZ_SCALE_HCR_SHD),
-			readl(base + CIF_MRSZ_SCALE_VY),
-			readl(base + CIF_MRSZ_SCALE_VY_SHD),
-			readl(base + CIF_MRSZ_SCALE_VC),
-			readl(base + CIF_MRSZ_SCALE_VC_SHD),
-			readl(base + CIF_MRSZ_PHASE_HY),
-			readl(base + CIF_MRSZ_PHASE_HY_SHD),
-			readl(base + CIF_MRSZ_PHASE_HC),
-			readl(base + CIF_MRSZ_PHASE_HC_SHD),
-			readl(base + CIF_MRSZ_PHASE_VY),
-			readl(base + CIF_MRSZ_PHASE_VY_SHD),
-			readl(base + CIF_MRSZ_PHASE_VC),
-			readl(base + CIF_MRSZ_PHASE_VC_SHD));
+	void __iomem *base = stream->ispdev->base_addr;
+
+	pr_info("RSZ_CTRL 0x%08x/0x%08x\n"
+			"RSZ_SCALE_HY %d/%d\n"
+			"RSZ_SCALE_HCB %d/%d\n"
+			"RSZ_SCALE_HCR %d/%d\n"
+			"RSZ_SCALE_VY %d/%d\n"
+			"RSZ_SCALE_VC %d/%d\n"
+			"RSZ_PHASE_HY %d/%d\n"
+			"RSZ_PHASE_HC %d/%d\n"
+			"RSZ_PHASE_VY %d/%d\n"
+			"RSZ_PHASE_VC %d/%d\n",
+			readl(base + stream->regs->rsz.ctrl),
+			readl(base + stream->regs->rsz.ctrl_shd),
+			readl(base + stream->regs->rsz.scale_hy),
+			readl(base + stream->regs->rsz.scale_hy_shd),
+			readl(base + stream->regs->rsz.scale_hcb),
+			readl(base + stream->regs->rsz.scale_hcb_shd),
+			readl(base + stream->regs->rsz.scale_hcr),
+			readl(base + stream->regs->rsz.scale_hcr_shd),
+			readl(base + stream->regs->rsz.scale_vy),
+			readl(base + stream->regs->rsz.scale_vy_shd),
+			readl(base + stream->regs->rsz.scale_vc),
+			readl(base + stream->regs->rsz.scale_vc_shd),
+			readl(base + stream->regs->rsz.phase_hy),
+			readl(base + stream->regs->rsz.phase_hy_shd),
+			readl(base + stream->regs->rsz.phase_hc),
+			readl(base + stream->regs->rsz.phase_hc_shd),
+			readl(base + stream->regs->rsz.phase_vy),
+			readl(base + stream->regs->rsz.phase_vy_shd),
+			readl(base + stream->regs->rsz.phase_vc),
+			readl(base + stream->regs->rsz.phase_vc_shd));
 }
 
-void sp_dump_rsz_regs(void __iomem *base)
+static void update_rsz_shadow(struct rkisp1_stream *stream)
 {
-	pr_info("SRSZ_CTRL 0x%08x/0x%08x\n"
-			"SRSZ_SCALE_HY %d/%d\n"
-			"SRSZ_SCALE_HCB %d/%d\n"
-			"SRSZ_SCALE_HCR %d/%d\n"
-			"SRSZ_SCALE_VY %d/%d\n"
-			"SRSZ_SCALE_VC %d/%d\n"
-			"SRSZ_PHASE_HY %d/%d\n"
-			"SRSZ_PHASE_HC %d/%d\n"
-			"SRSZ_PHASE_VY %d/%d\n"
-			"SRSZ_PHASE_VC %d/%d\n",
-			readl(base + CIF_SRSZ_CTRL),
-			readl(base + CIF_SRSZ_CTRL_SHD),
-			readl(base + CIF_SRSZ_SCALE_HY),
-			readl(base + CIF_SRSZ_SCALE_HY_SHD),
-			readl(base + CIF_SRSZ_SCALE_HCB),
-			readl(base + CIF_SRSZ_SCALE_HCB_SHD),
-			readl(base + CIF_SRSZ_SCALE_HCR),
-			readl(base + CIF_SRSZ_SCALE_HCR_SHD),
-			readl(base + CIF_SRSZ_SCALE_VY),
-			readl(base + CIF_SRSZ_SCALE_VY_SHD),
-			readl(base + CIF_SRSZ_SCALE_VC),
-			readl(base + CIF_SRSZ_SCALE_VC_SHD),
-			readl(base + CIF_SRSZ_PHASE_HY),
-			readl(base + CIF_SRSZ_PHASE_HY_SHD),
-			readl(base + CIF_SRSZ_PHASE_HC),
-			readl(base + CIF_SRSZ_PHASE_HC_SHD),
-			readl(base + CIF_SRSZ_PHASE_VY),
-			readl(base + CIF_SRSZ_PHASE_VY_SHD),
-			readl(base + CIF_SRSZ_PHASE_VC),
-			readl(base + CIF_SRSZ_PHASE_VC_SHD));
+	void *addr = stream->ispdev->base_addr + stream->regs->rsz.ctrl;
+	u32 ctrl_cfg = readl(addr);
+
+	writel(CIF_RSZ_CTRL_CFG_UPD | ctrl_cfg, addr);
 }
 
-void set_scale(struct rkisp1_stream *stream, struct rkisp1_win *in_y,
+static void set_scale(struct rkisp1_stream *stream, struct rkisp1_win *in_y,
 		struct rkisp1_win *in_c, struct rkisp1_win *out_y,
 		struct rkisp1_win *out_c)
 {
-	void __iomem *base = stream->base_addr;
-	void __iomem *scale_hy_addr = base + stream->regs->scale_hy;
-	void __iomem *scale_hcr_addr = base + stream->regs->scale_hcr;
-	void __iomem *scale_hcb_addr = base + stream->regs->scale_hcb;
-	void __iomem *scale_vy_addr = base + stream->regs->scale_vy;
-	void __iomem *scale_vc_addr = base + stream->regs->scale_vc;
-	void __iomem *rsz_ctrl_addr = base + stream->regs->rsz_ctrl;
+	void __iomem *base = stream->ispdev->base_addr;
+	void __iomem *scale_hy_addr = base + stream->regs->rsz.scale_hy;
+	void __iomem *scale_hcr_addr = base + stream->regs->rsz.scale_hcr;
+	void __iomem *scale_hcb_addr = base + stream->regs->rsz.scale_hcb;
+	void __iomem *scale_vy_addr = base + stream->regs->rsz.scale_vy;
+	void __iomem *scale_vc_addr = base + stream->regs->rsz.scale_vc;
+	void __iomem *rsz_ctrl_addr = base + stream->regs->rsz.ctrl;
 	u32 scale_hy, scale_hc, scale_vy, scale_vc, rsz_ctrl = 0;
 
 	if (in_y->w < out_y->w) {
@@ -205,3 +182,70 @@ void set_scale(struct rkisp1_stream *stream, struct rkisp1_win *in_y,
 	writel(rsz_ctrl, rsz_ctrl_addr);
 }
 
+void config_rsz(struct rkisp1_stream *stream, struct rkisp1_win *in_y,
+	struct rkisp1_win *in_c, struct rkisp1_win *out_y,
+	struct rkisp1_win *out_c, bool async)
+{
+	int i = 0;
+
+	/* No phase offset */
+	writel(0, stream->ispdev->base_addr + stream->regs->rsz.phase_hy);
+	writel(0, stream->ispdev->base_addr + stream->regs->rsz.phase_hc);
+	writel(0, stream->ispdev->base_addr + stream->regs->rsz.phase_vy);
+	writel(0, stream->ispdev->base_addr + stream->regs->rsz.phase_vc);
+
+	/* Linear interpolation */
+	for (i = 0; i < 64; i++) {
+		writel(i, stream->ispdev->base_addr + stream->regs->rsz.scale_lut_addr);
+		writel(i, stream->ispdev->base_addr + stream->regs->rsz.scale_lut);
+	}
+
+	set_scale(stream, in_y, in_c, out_y, out_c);
+
+	if (!async)
+		update_rsz_shadow(stream);
+}
+
+void disable_rsz(struct rkisp1_stream *stream, bool async)
+{
+	writel(0, stream->ispdev->base_addr + stream->regs->rsz.ctrl);
+
+	if (!async)
+		update_rsz_shadow(stream);
+}
+
+void config_mi_ctrl(struct rkisp1_stream *stream)
+{
+	void __iomem *base = stream->ispdev->base_addr;
+	void __iomem *addr = base + CIF_MI_CTRL;
+	u32 reg;
+
+	reg = readl(addr) & ~GENMASK(17, 16);
+	writel(reg | CIF_MI_CTRL_BURST_LEN_LUM_64, addr);
+	reg = readl(addr) & ~GENMASK(19, 18);
+	writel(reg | CIF_MI_CTRL_BURST_LEN_CHROM_64, addr);
+	reg = readl(addr);
+	writel(reg | CIF_MI_CTRL_INIT_BASE_EN, addr);
+	reg = readl(addr);
+	writel(reg | CIF_MI_CTRL_INIT_OFFSET_EN, addr);
+}
+
+void mp_clr_frame_end_int(void __iomem *base)
+{
+	writel(CIF_MI_MP_FRAME, base + CIF_MI_ICR);
+}
+
+void sp_clr_frame_end_int(void __iomem *base)
+{
+	writel(CIF_MI_SP_FRAME, base + CIF_MI_ICR);
+}
+
+u32 mp_is_frame_end_int_masked(void __iomem *base)
+{
+	return (mi_get_masked_int_status(base) & CIF_MI_MP_FRAME);
+}
+
+u32 sp_is_frame_end_int_masked(void __iomem *base)
+{
+	return (mi_get_masked_int_status(base) & CIF_MI_SP_FRAME);
+}
