@@ -42,6 +42,5 @@ void rkisp1_unregister_stream_vdevs(struct rkisp1_device *dev);
 int rkisp1_register_stream_vdevs(struct rkisp1_device *dev);
 void rkisp1_mi_isr(struct rkisp1_stream *stream);
 int rkisp1_stream_init(struct rkisp1_stream *stream, u32 id);
-int rkisp1_stream_release(struct rkisp1_stream *stream);
 
 #endif /* _RKISP1_PATH_VIDEO_H */

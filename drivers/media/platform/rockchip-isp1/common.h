@@ -182,10 +182,72 @@ enum rkisp1_sp_inp {
 
 struct rkisp1_device;
 struct rkisp1_stream;
-struct streams_regs;
+
+struct rkisp1_stream_sp {
+	int y_stride;
+	enum rkisp1_sp_inp input_sel;
+};
+
+struct rkisp1_stream_mp {
+	bool raw_enable;
+};
+
+struct stream_config {
+	const struct rkisp1_fmt *fmts;
+	int fmt_size;
+	union {
+		struct rkisp1_stream_sp sp;
+		struct rkisp1_stream_mp mp;
+	} u;
+	/* registers */
+	struct {
+		u32 ctrl;
+		u32 ctrl_shd;
+		u32 scale_hy;
+		u32 scale_hcr;
+		u32 scale_hcb;
+		u32 scale_vy;
+		u32 scale_vc;
+		u32 scale_lut;
+		u32 scale_lut_addr;
+		u32 scale_hy_shd;
+		u32 scale_hcr_shd;
+		u32 scale_hcb_shd;
+		u32 scale_vy_shd;
+		u32 scale_vc_shd;
+		u32 phase_hy;
+		u32 phase_hc;
+		u32 phase_vy;
+		u32 phase_vc;
+		u32 phase_hy_shd;
+		u32 phase_hc_shd;
+		u32 phase_vy_shd;
+		u32 phase_vc_shd;
+	} rsz;
+	struct {
+		u32 ctrl;
+		u32 yuvmode_mask;
+		u32 rawmode_mask;
+		u32 h_offset;
+		u32 v_offset;
+		u32 h_size;
+		u32 v_size;
+	} dual_crop;
+	struct {
+		u32 y_size_init;
+		u32 cb_size_init;
+		u32 cr_size_init;
+		u32 y_base_ad_init;
+		u32 cb_base_ad_init;
+		u32 cr_base_ad_init;
+		u32 y_offs_cnt_init;
+		u32 cb_offs_cnt_init;
+		u32 cr_offs_cnt_init;
+		u32 y_base_ad_shd;
+	} mi;
+};
 
 struct streams_ops {
-	void (*stream_init)(struct rkisp1_stream *stream);
 	int (*check_against)(struct rkisp1_stream *stream);
 	void (*config_mi)(struct rkisp1_stream *stream);
 	void (*stop_mi)(struct rkisp1_stream *stream);
@@ -196,27 +258,17 @@ struct streams_ops {
 	u32 (*is_frame_end_int_masked)(void __iomem *base);
 };
 
-struct rkisp1_stream_sp {
-	enum rkisp1_sp_inp input_sel;
-};
-
-struct rkisp1_stream_mp {
-	bool raw_enable;
-};
-
 struct rkisp1_stream {
 	u32 id;
 	struct rkisp1_device *ispdev;
 	struct rkisp1_vdev_node vnode;
 	enum rkisp1_state state;
 	enum rkisp1_state saved_state;
-	const struct rkisp1_fmt *fmts;
-	int fmt_size;
 	struct rkisp1_fmt out_isp_fmt;
 	struct v4l2_pix_format_mplane out_fmt;
 	struct v4l2_rect dcrop;
 	struct streams_ops *ops;
-	struct streams_regs *regs;
+	struct stream_config *config;
 	/* spinlock for videobuf queues */
 	spinlock_t vbq_lock;
 	/* mi config */
@@ -225,9 +277,6 @@ struct rkisp1_stream {
 	struct rkisp1_buffer *next_buf;
 	bool stop;
 	wait_queue_head_t done;
-
-	struct rkisp1_stream_sp sp_config;
-	struct rkisp1_stream_mp mp_config;
 };
 
 extern int rkisp1_debug;

@@ -556,7 +556,9 @@ static const struct rkisp1_fmt sp_fmts[] = {
 	},
 };
 
-static struct streams_regs rkisp1_mp_streams_regs = {
+static struct stream_config rkisp1_mp_stream_config = {
+	.fmts = mp_fmts,
+	.fmt_size = ARRAY_SIZE(mp_fmts),
 	.rsz = {
 		.ctrl = CIF_MRSZ_CTRL,
 		.scale_hy = CIF_MRSZ_SCALE_HY,
@@ -604,7 +606,9 @@ static struct streams_regs rkisp1_mp_streams_regs = {
 	},
 };
 
-static struct streams_regs rkisp1_sp_streams_regs = {
+static struct stream_config rkisp1_sp_stream_config = {
+	.fmts = sp_fmts,
+	.fmt_size = ARRAY_SIZE(sp_fmts),
 	.rsz = {
 		.ctrl = CIF_SRSZ_CTRL,
 		.scale_hy = CIF_SRSZ_SCALE_HY,
@@ -653,14 +657,13 @@ static struct streams_regs rkisp1_sp_streams_regs = {
 };
 
 static const
-struct rkisp1_fmt *find_fmt(const struct rkisp1_fmt *fmt_array,
-			int array_size, const u32 pixelfmt)
+struct rkisp1_fmt *find_fmt(struct rkisp1_stream *stream, const u32 pixelfmt)
 {
-	int i;
 	const struct rkisp1_fmt *fmt;
+	int i;
 
-	for (i = 0; i < array_size; i++) {
-		fmt = &fmt_array[i];
+	for (i = 0; i < stream->config->fmt_size; i++) {
+		fmt = &stream->config->fmts[i];
 		if (fmt->fourcc == pixelfmt)
 			return fmt;
 	}
@@ -736,6 +739,8 @@ static int rkisp1_config_rsz(struct rkisp1_stream *stream, bool async)
 	return 0;
 
 disable:
+	disable_rsz(stream, async);
+
 	return 0;
 }
 
@@ -772,7 +777,8 @@ static void sp_config_mi(struct rkisp1_stream *stream)
 
 	sp_set_y_width(base, stream->out_fmt.width);
 	sp_set_y_height(base, stream->out_fmt.height);
-	sp_set_y_line_length(base, stream->out_fmt.width);
+	sp_set_y_line_length(base, stream->config->u.sp.y_stride);
+
 	sp_frame_end_int_enable(base);
 	if (output_isp_fmt->uv_swap)
 		sp_set_uv_swap(base);
@@ -806,7 +812,7 @@ static int sp_check_against(struct rkisp1_stream *stream)
 	struct rkisp1_stream *mp = get_other_stream(stream);
 	struct v4l2_device *v4l2_dev = &stream->ispdev->v4l2_dev;
 
-	if (mp->mp_config.raw_enable && mp->state == RKISP1_STATE_STREAMING) {
+	if (mp->config->u.mp.raw_enable && mp->state == RKISP1_STATE_STREAMING) {
 		v4l2_err(v4l2_dev, "can't start SP path when MP RAW active\n");
 		return -EBUSY;
 	}
@@ -817,21 +823,6 @@ static int sp_check_against(struct rkisp1_stream *stream)
 	return 0;
 }
 
-void mp_stream_init(struct rkisp1_stream *stream)
-{
-	stream->mp_config.raw_enable = false;
-	stream->fmts = mp_fmts;
-	stream->fmt_size = ARRAY_SIZE(mp_fmts);
-	stream->regs = &rkisp1_mp_streams_regs;
-}
-
-void sp_stream_init(struct rkisp1_stream *stream)
-{
-	stream->fmts = sp_fmts;
-	stream->fmt_size = ARRAY_SIZE(sp_fmts);
-	stream->regs = &rkisp1_sp_streams_regs;
-}
-
 static void mp_enable_mi(struct rkisp1_stream *stream)
 {
 	void __iomem *base = stream->ispdev->base_addr;
@@ -839,10 +830,8 @@ static void mp_enable_mi(struct rkisp1_stream *stream)
 
 	mi_ctrl_mp_disable(base);
 	if (isp_fmt->fmt_type == FMT_BAYER) {
-		stream->mp_config.raw_enable = true;
 		mi_ctrl_mpraw_enable(base);
 	} else if (isp_fmt->fmt_type == FMT_YUV) {
-		stream->mp_config.raw_enable = false;
 		mi_ctrl_mpyuv_enable(base);
 	}
 }
@@ -905,7 +894,6 @@ static void sp_stop_mi(struct rkisp1_stream *stream)
 }
 
 static struct streams_ops rkisp1_mp_streams_ops = {
-	.stream_init = mp_stream_init,
 	.check_against = mp_check_against,
 	.config_mi = mp_config_mi,
 	.enable_mi = mp_enable_mi,
@@ -917,7 +905,6 @@ static struct streams_ops rkisp1_mp_streams_ops = {
 };
 
 static struct streams_ops rkisp1_sp_streams_ops = {
-	.stream_init = sp_stream_init,
 	.check_against = sp_check_against,
 	.config_mi = sp_config_mi,
 	.enable_mi = sp_enable_mi,
@@ -941,11 +928,11 @@ static void rkisp1_stream_stop(struct rkisp1_stream *stream)
 	if (!ret) {
 		v4l2_warn(v4l2_dev, "waiting on event return error %d\n", ret);
 		stream->ops->stop_mi(stream);
-		disable_dcrop(stream, true);
-		disable_rsz(stream, true);
 		stream->stop = false;
 		stream->state = RKISP1_STATE_READY;
 	}
+	disable_dcrop(stream, true);
+	disable_rsz(stream, true);
 }
 
 /* TODO: use dummy buffer instead of holding a buffer when there is no queued
@@ -956,13 +943,13 @@ static int mi_frame_end(struct rkisp1_stream *stream)
 	struct rkisp1_device *dev = stream->ispdev;
 	void __iomem *base = stream->ispdev->base_addr;
 	struct rkisp1_fmt *isp_fmt;
-	void __iomem *y_base_addr = base + stream->regs->mi.y_base_ad_shd;
+	void __iomem *y_base_addr = base + stream->config->mi.y_base_ad_shd;
+	unsigned long lock_flags = 0;
 	int i = 0;
 
-	stream->ops->clr_frame_end_int(base);
 	isp_fmt = &stream->out_isp_fmt;
-	if (stream->next_buf && (vb2_dma_contig_plane_dma_addr
-		    (&stream->next_buf->vb.vb2_buf, 0)
+	if (unlikely(stream->next_buf && (vb2_dma_contig_plane_dma_addr
+		    (&stream->next_buf->vb.vb2_buf, 0))
 		    != readl(y_base_addr))) {
 		v4l2_warn(&dev->v4l2_dev,
 		"stream id: %d buffer queue is not advancing (0x%08x/0x%08x)\n",
@@ -974,29 +961,32 @@ static int mi_frame_end(struct rkisp1_stream *stream)
 	}
 
 	if (stream->next_buf) {
+		if (stream->curr_buf) {
+			for (i = 0; i < isp_fmt->mplanes; i++) {
+				u32 payload_size =
+					stream->out_fmt.plane_fmt[i].sizeimage;
+				vb2_set_plane_payload(
+					&stream->curr_buf->vb.vb2_buf, i,
+					payload_size);
+			}
+			vb2_buffer_done(&stream->curr_buf->vb.vb2_buf,
+					VB2_BUF_STATE_DONE);
+			wake_up(&stream->curr_buf->vb.vb2_buf.
+				vb2_queue->done_wq);
+		}
+
 		stream->curr_buf = stream->next_buf;
 		stream->next_buf = NULL;
-
-		for (i = 0; i < isp_fmt->mplanes; i++) {
-			u32 payload_size =
-				stream->out_fmt.plane_fmt[i].sizeimage;
-			vb2_set_plane_payload(
-				&stream->curr_buf->vb.vb2_buf, i,
-				payload_size);
-		}
-		vb2_buffer_done(&stream->curr_buf->vb.vb2_buf,
-				VB2_BUF_STATE_DONE);
-		wake_up(&stream->curr_buf->vb.vb2_buf.
-			vb2_queue->done_wq);
 	}
 
-
-	if (!stream->next_buf && !list_empty(&stream->buf_queue)) {
+	spin_lock_irqsave(&stream->vbq_lock, lock_flags);
+	if (!list_empty(&stream->buf_queue)) {
 		stream->next_buf = list_first_entry(&stream->buf_queue,
 				     struct rkisp1_buffer, queue);
 		list_del(&stream->next_buf->queue);
 		update_mi(stream);
 	}
+	spin_unlock_irqrestore(&stream->vbq_lock, lock_flags);
 
 	return 0;
 }
@@ -1007,21 +997,21 @@ static int mi_frame_end(struct rkisp1_stream *stream)
 static int rkisp1_start(struct rkisp1_stream *stream)
 {
 	void __iomem *base = stream->ispdev->base_addr;
+	unsigned long lock_flags = 0;
 
 	stream->ops->set_data_path(base);
 	stream->ops->config_mi(stream);
 
-	stream->next_buf = NULL;
+	spin_lock_irqsave(&stream->vbq_lock, lock_flags);
 	stream->curr_buf = NULL;
-	spin_lock(&stream->vbq_lock);
-	mi_frame_end(stream);
-	spin_unlock(&stream->vbq_lock);
+	stream->next_buf = list_first_entry(&stream->buf_queue,
+		struct rkisp1_buffer, queue);
+	list_del(&stream->next_buf->queue);
+	update_mi(stream);
+	spin_unlock_irqrestore(&stream->vbq_lock, lock_flags);
 
-	force_cfg_update(base);
-	spin_lock(&stream->vbq_lock);
-	mi_frame_end(stream);
-	spin_unlock(&stream->vbq_lock);
 	stream->ops->enable_mi(stream);
+	force_cfg_update(base);
 	stream->state = RKISP1_STATE_STREAMING;
 
 	return 0;
@@ -1061,8 +1051,7 @@ static int rkisp1_queue_setup(struct vb2_queue *queue,
 
 	if (pfmt) {
 		pixm = &pfmt->fmt.pix_mp;
-		isp_fmt = find_fmt(stream->fmts, stream->fmt_size,
-				   pixm->pixelformat);
+		isp_fmt = find_fmt(stream, pixm->pixelformat);
 	} else {
 		pixm = &stream->out_fmt;
 		isp_fmt = &stream->out_isp_fmt;
@@ -1135,6 +1124,13 @@ static void rkisp1_stop_streaming(struct vb2_queue *queue)
 		return;
 
 	stream->state = RKISP1_STATE_READY;
+
+	spin_lock_irqsave(&stream->vbq_lock, lock_flags);
+	buf = stream->curr_buf;
+	stream->curr_buf = NULL;
+	spin_unlock_irqrestore(&stream->vbq_lock, lock_flags);
+	if (buf)
+		vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_ERROR);
 
 	spin_lock_irqsave(&stream->vbq_lock, lock_flags);
 	buf = stream->next_buf;
@@ -1265,10 +1261,9 @@ static int rkisp1_set_fmt(struct rkisp1_stream *stream,
 	unsigned int planes;
 	int i;
 
-	fmt = find_fmt(stream->fmts, stream->fmt_size,
-				pixm->pixelformat);
+	fmt = find_fmt(stream, pixm->pixelformat);
 	if (!fmt)
-		fmt = stream->fmts;
+		fmt = stream->config->fmts;
 	/* TODO: do more checks on resolution */
 	/* TODO: quantization */
 	pixm->num_planes = fmt->mplanes;
@@ -1279,7 +1274,9 @@ static int rkisp1_set_fmt(struct rkisp1_stream *stream,
 	planes = fmt->cplanes ? fmt->cplanes : fmt->mplanes;
 	for (i = 0; i < planes; i++) {
 		struct v4l2_plane_pix_format *plane_fmt;
-		int width, height;
+		int width, height, bytesperline;
+
+		plane_fmt = pixm->plane_fmt + i;
 
 		if (i == 0) {
 			width = pixm->width;
@@ -1288,8 +1285,13 @@ static int rkisp1_set_fmt(struct rkisp1_stream *stream,
 			width = pixm->width / fmt->xsubs;
 			height = pixm->height / fmt->ysubs;
 		}
-		plane_fmt = pixm->plane_fmt + i;
-		plane_fmt->bytesperline = width * DIV_ROUND_UP(fmt->bpp[i], 8);
+
+		bytesperline = width * DIV_ROUND_UP(fmt->bpp[i], 8);
+		/* stride is only available for sp stream and y plane */
+		if (stream->id != RKISP1_STREAM_SP || i != 0 ||
+			plane_fmt->bytesperline < bytesperline)
+			plane_fmt->bytesperline = bytesperline;
+
 		plane_fmt->sizeimage = plane_fmt->bytesperline * height;
 
 		imagsize += plane_fmt->sizeimage;
@@ -1302,6 +1304,15 @@ static int rkisp1_set_fmt(struct rkisp1_stream *stream,
 	if (!try) {
 		stream->out_isp_fmt = *fmt;
 		stream->out_fmt = *pixm;
+
+		if (stream->id == RKISP1_STREAM_SP) {
+			stream->config->u.sp.y_stride =
+				pixm->plane_fmt[0].bytesperline /
+				DIV_ROUND_UP(fmt->bpp[0], 8);
+		} else {
+			stream->config->u.mp.raw_enable =
+				fmt->fmt_type == FMT_BAYER ? true : false;
+		}
 	}
 
 	return 0;
@@ -1314,16 +1325,18 @@ int rkisp1_stream_init(struct rkisp1_stream *stream, u32 id)
 
 	INIT_LIST_HEAD(&stream->buf_queue);
 	stream->next_buf = NULL;
-	stream->curr_buf = NULL;
 	stream->stop = false;
 	stream->id = id;
 	init_waitqueue_head(&stream->done);
 	spin_lock_init(&stream->vbq_lock);
-	if (stream->id == RKISP1_STREAM_SP)
+	if (stream->id == RKISP1_STREAM_SP) {
 		stream->ops = &rkisp1_sp_streams_ops;
-	else
+		stream->config = &rkisp1_sp_stream_config;
+	} else {
 		stream->ops = &rkisp1_mp_streams_ops;
-	stream->ops->stream_init(stream);
+		stream->config = &rkisp1_mp_stream_config;
+	}
+
 	stream->state = RKISP1_STATE_READY;
 
 	pixm.pixelformat = V4L2_PIX_FMT_YUYV;
@@ -1339,24 +1352,6 @@ int rkisp1_stream_init(struct rkisp1_stream *stream, u32 id)
 	return 0;
 }
 
-int rkisp1_stream_release(struct rkisp1_stream *stream)
-{
-	struct rkisp1_device *dev = stream->ispdev;
-	int ret;
-
-	if (stream->state == RKISP1_STATE_DISABLED)
-		return 0;
-
-	if (stream->state == RKISP1_STATE_STREAMING) {
-		rkisp1_stream_stop(stream);
-		ret = dev->pipe.set_stream(&dev->pipe, false);
-		if (ret < 0)
-			return ret;
-	}
-	stream->state = RKISP1_STATE_DISABLED;
-	return 0;
-}
-
 static const struct v4l2_file_operations rkisp1_fops = {
 	.open = v4l2_fh_open,
 	.release = vb2_fop_release,
@@ -1368,31 +1363,13 @@ static const struct v4l2_file_operations rkisp1_fops = {
 /*
  * mp and sp v4l2_ioctl_ops
  */
+
+/* keep for compatibility */
 static int rkisp1_enum_input(struct file *file, void *priv,
 				     struct v4l2_input *input)
 {
-	struct rkisp1_stream *stream = video_drvdata(file);
-	struct v4l2_device *v4l2_dev = &stream->ispdev->v4l2_dev;
-	struct vb2_queue *queue = &stream->vnode.buf_queue;
-	struct rkisp1_device *dev = stream->ispdev;
-	const char *inp_name;
-
-	if (queue->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		v4l2_err(v4l2_dev, "wrong buffer queue %d\n",
-			 queue->type);
+	if (input->index > 0)
 		return -EINVAL;
-	}
-
-	if (input->index > dev->num_sensors)
-		return -EINVAL;
-
-	inp_name = dev_driver_string(dev->subdevs[RKISP1_SD_SENSOR]->dev);
-	if (IS_ERR(inp_name))
-		return PTR_ERR(inp_name);
-
-	input->type = V4L2_INPUT_TYPE_CAMERA;
-	input->std = V4L2_STD_UNKNOWN;
-	strncpy(input->name, inp_name, sizeof(input->name) - 1);
 
 	return 0;
 }
@@ -1413,10 +1390,10 @@ static int rkisp1_enum_fmt_vid_cap_mplane(struct file *file, void *priv,
 	struct rkisp1_stream *stream = video_drvdata(file);
 	const struct rkisp1_fmt *fmt = NULL;
 
-	if (f->index >= stream->fmt_size) {
+	if (f->index >= stream->config->fmt_size) {
 		return -EINVAL;
 	}
-	fmt = &stream->fmts[f->index];
+	fmt = &stream->config->fmts[f->index];
 	f->pixelformat = fmt->fourcc;
 
 	return 0;
@@ -1576,17 +1553,9 @@ static int rkisp1_register_stream_vdev(struct rkisp1_stream *stream)
 	struct rkisp1_vdev_node *node;
 	int ret;
 
-	if (stream->id == RKISP1_STREAM_SP) {
-		strlcpy(vdev->name, SP_VDEV_NAME, sizeof(vdev->name));
-		stream->fmts = sp_fmts;
-		stream->fmt_size = ARRAY_SIZE(sp_fmts);
-		stream->ops = &rkisp1_sp_streams_ops;
-	} else {
-		strlcpy(vdev->name, MP_VDEV_NAME, sizeof(vdev->name));
-		stream->fmts = mp_fmts;
-		stream->fmt_size = ARRAY_SIZE(mp_fmts);
-		stream->ops = &rkisp1_mp_streams_ops;
-	}
+	strlcpy(vdev->name,
+		stream->id == RKISP1_STREAM_SP ?SP_VDEV_NAME : MP_VDEV_NAME,
+		sizeof(vdev->name));
 	node = vdev_to_node(vdev);
 	mutex_init(&node->vlock);
 
@@ -1602,7 +1571,7 @@ static int rkisp1_register_stream_vdev(struct rkisp1_stream *stream)
 	vdev->vfl_dir = VFL_DIR_RX;
 	node->pad.flags = MEDIA_PAD_FL_SINK;
 
-	stream->ispdev->alloc_ctx = vb2_dma_contig_init_ctx(v4l2_dev->dev);
+	dev->alloc_ctx = vb2_dma_contig_init_ctx(v4l2_dev->dev);
 	rkisp_init_vb2_queue(&node->buf_queue, stream,
 			     V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	vdev->queue = &node->buf_queue;
@@ -1657,14 +1626,10 @@ void rkisp1_mi_isr(struct rkisp1_stream *stream)
 		v4l2_err(&dev->v4l2_dev, "icr err: 0x%x\n", val);
 	}
 
-	spin_lock(&stream->vbq_lock);
 	mi_frame_end(stream);
-	spin_unlock(&stream->vbq_lock);
 
 	if (stream->stop) {
 		stream->ops->stop_mi(stream);
-		disable_dcrop(stream, true);
-		disable_rsz(stream, true);
 		stream->stop = false;
 		stream->state = RKISP1_STATE_READY;
 		v4l2_info(&dev->v4l2_dev, "stream %d stopped\n", stream->id);

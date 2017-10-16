@@ -490,10 +490,8 @@ err_unreg_isp_subdev:
 
 static const char * const rk3399_isp_clks[] = {
 	"clk-isp",
-	"aclk-isp-noc",
-	"aclk-isp-wrapper",
-	"hclk-isp-noc",
-	"hclk-isp-wrapper",
+	"aclk-isp",
+	"hclk-isp",
 };
 
 static const char * const rk3288_isp_clks[] = {
@@ -689,8 +687,6 @@ static int rkisp1_plat_remove(struct platform_device *pdev)
 	rkisp1_unregister_stats_vdev(&isp_dev->stats_vdev);
 	rkisp1_unregister_stream_vdevs(isp_dev);
 	rkisp1_unregister_isp_subdev(isp_dev);
-	rkisp1_stream_release(&isp_dev->stream[RKISP1_STREAM_SP]);
-	rkisp1_stream_release(&isp_dev->stream[RKISP1_STREAM_MP]);
 
 	return 0;
 }
